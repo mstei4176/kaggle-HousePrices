@@ -242,7 +242,7 @@ amlNEWt1 <- h2o.automl(x = x, y = y,
                        nfolds = nfolds,
                        include_algos = c("GLM","XGBoost","StackedEnsemble","GBM","DeepLearning","DRF"),
                        keep_cross_validation_predictions = TRUE,
-                       max_runtime_secs = 60,
+                       max_runtime_secs = 3600,
                        #max_runtime_secs_per_model = 900,
                        stopping_metric = "RMSLE",
                        stopping_rounds = 3,
@@ -261,128 +261,81 @@ san_xgb1 <- h2o.xgboost(x = x,
                         training_frame = training.train,
                         validation_frame = training.blend,
                         backend = "auto",
-                        # model_id = "san_xgb1",
+                        model_id = "san_xgb1",
                         #distribution = "gaussian",
                         categorical_encoding = "LabelEncoder", #best
                         tree_method = "exact", #best
-                        # ntrees = 5000,
+                        ntrees = 4300,
+                        learn_rate = 0.005,
                         min_rows = 4, #best
                         max_depth = 4, #best
-                        # learn_rate = 0.005,
-                        # grow_policy = "lossguide",
+                        normalize_type = "forest", #best
+                        #sample_rate = 0.8, # better at 1.0
+                        grow_policy = "depthwise",
                         booster = "gbtree", #best
                         nfolds = nfolds,
                         stopping_metric = "RMSLE",
                         stopping_tolerance = 0.001,
                         fold_assignment = "Modulo",
+                        export_checkpoints_dir = "/mnt/data/DataSet/HousePricesKaggle/models",
                         keep_cross_validation_predictions = TRUE,
                         seed = 1)
 # > h2o.rmsle(h2o.performance(san_xgb1, training.blend))
-# [1] 0.01036601
+# [1] 0.01036601 with default tree and eta
+# [1] 0.009435 with 4300 trees and eta = 0.005
 h2o.rmsle(h2o.performance(san_xgb1, training.blend))
 
 
-san_xgb2 <- h2o.xgboost(x = x,
+san_glm1 <- h2o.glm(    x = x,
                         y = y,
                         training_frame = training.train,
-                        model_id = "san_xgb2",
-                        distribution = "gaussian",
-                        ntrees = 5000,
-                        max_depth = 4,
-                        min_rows = 5,
-                        eta = 0.001,
-                        nfolds = nfolds,
-                        stopping_metric = "RMSLE",
-                        stopping_tolerance = 0.001,
-                        categorical_encoding = "OneHotInternal",
+                        validation_frame = training.blend,
+                        model_id = "san_glm1",
+                        family = "gaussian",
+                        standardize = TRUE,
+                        missing_values_handling = "Skip",
+                        lambda_search = TRUE,
+                        remove_collinear_columns = TRUE,
+                        solver = "COORDINATE_DESCENT_NAIVE", # "L_BFGS" "COORDINATE_DESCENT"
+                        early_stopping = TRUE,
+                        #max_iterations = 10000,
+                        #link = "log",
+                        seed = 1,
                         fold_assignment = "Modulo",
+                        export_checkpoints_dir = "/mnt/data/DataSet/HousePricesKaggle/models",
                         keep_cross_validation_predictions = TRUE,
-                        seed = 1)
+                        nfolds = nfolds)
 
-san_xgb3 <- h2o.xgboost(x = x,
+h2o.rmsle(h2o.performance(san_glm1, training.blend))
+
+## Lasso Regression alpha =1
+san_glm2 <- h2o.glm(     x = x,
                         y = y,
                         training_frame = training.train,
-                        distribution = "gaussian",
-                        model_id = "san_xgb3",
-                        ntrees = 5000,
-                        booster = "gblinear",
-                        max_depth = 4,
-                        min_rows = 5,
-                        eta = 0.001,
-                        nfolds = nfolds,
-                        stopping_metric = "RMSLE",
-                        stopping_tolerance = 0.001,
-                        categorical_encoding = "OneHotInternal",
+                        validation_frame = training.blend,
+                        family = "gaussian",
+                        model_id = "san_glm2",
+                        standardize = TRUE,
+                        missing_values_handling = "Skip",
+                        alpha =  1,
+                        lambda_search = TRUE,
+                        remove_collinear_columns = TRUE,
+                        solver = "COORDINATE_DESCENT_NAIVE", # "L_BFGS" "COORDINATE_DESCENT"
+                        early_stopping = TRUE,
+                        #max_iterations = 10000,
+                        #link = "log",
+                        seed = 1,
                         fold_assignment = "Modulo",
+                        export_checkpoints_dir = "/mnt/data/DataSet/HousePricesKaggle/models",
                         keep_cross_validation_predictions = TRUE,
-                        seed = 1)
+                        nfolds = nfolds)
 
-# Train & Cross-validate another (deeper) XGB-GBM
-# san_xbm1 <- h2o.gbm(x = x,
-#                     y = y,
-#                     training_frame = training.train,
-#                     distribution = "gaussian",
-#                     categorical_encoding = "LabelEncoder",
-#                     ntrees = 1200,
-#                     max_depth = 3,
-#                     learn_rate = 0.005,
-#                     min_rows =2,
-#                     nfolds = nfolds,
-#                     stopping_metric = "RMSLE",
-#                     stopping_tolerance = 0.001,
-#                     fold_assignment = "Modulo",
-#                     keep_cross_validation_predictions = TRUE,
-#                     seed = 1)
-# 
-# san_nn1 <- h2o.deeplearning(x = x, 
-#                             y = y, 
-#                             training_frame = training.train,
-#                             activation="RectifierWithDropout",
-#                             hidden=c(100,100), 
-#                             epochs=100, 
-#                             seed = 1, 
-#                             loss = "Quadratic",
-#                             input_dropout_ratio = 0.3, 
-#                             hidden_dropout_ratios = c(0.02, 0.02),
-#                             fold_assignment = "Modulo",
-#                             keep_cross_validation_predictions = TRUE,
-#                             nfolds = nfolds, 
-#                             quiet_mode=TRUE)
-# 
-# san_glm1 <- h2o.glm(        x = x, 
-#                             y = y, 
-#                             training_frame = training.train,
-#                             family = "gaussian",
-#                             standardize = TRUE,             
-#                             missing_values_handling = "Skip",
-#                             lambda_search = TRUE,
-#                             remove_collinear_columns = TRUE,
-#                             solver = "L_BFGS", # "L_BFGS" "COORDINATE_DESCENT"
-#                             early_stopping = TRUE,
-#                             max_iterations = 10000,
-#                             seed = 1,
-#                             fold_assignment = "Modulo",
-#                             keep_cross_validation_predictions = TRUE,
-#                             nfolds = nfolds)
-# 
-# 
-# san_glm2 <- h2o.glm(        x = x, 
-#                             y = y, 
-#                             training_frame = training.train,
-#                             lambda_search = TRUE,
-#                             remove_collinear_columns = TRUE,
-#                             solver = "COORDINATE_DESCENT", # "L_BFGS" "COORDINATE_DESCENT"
-#                             early_stopping = TRUE,
-#                             max_iterations = 10000,
-#                             seed = 1,
-#                             fold_assignment = "Modulo",
-#                             keep_cross_validation_predictions = TRUE,
-#                             nfolds = nfolds)
+h2o.rmsle(h2o.performance(san_glm2, training.blend))
 
 
 ensemble <- h2o.stackedEnsemble(x = x,
                                 y = y,
-                                base_models = list(san_xgb1, san_xgb2),
+                                base_models = list(san_xgb1, san_glm1, san_glm2),
                                 training_frame = training.train,
                                 blending_frame = training.blend,
                                 model_id = "HP_ensemble",
