@@ -392,7 +392,7 @@ predML <- h2o.predict(amlNEWt1, newdata = test.hex)
 predictiondf <- as.data.frame(pred)
 predictiondfML <- as.data.frame(predML)
 
-version <- "110"
+version <- "111"
 
 #---------------------------
 cat("Making submission file...\n")
@@ -413,8 +413,8 @@ read_csv("/mnt/Data/DataSet/HousePricesKaggle/sample_submission.csv") %>%
             SalePriceR3 = run3$SalePrice,
             SalePriceEns= expm1(predictiondf$predict))  %>%
   rowwise() %>%
-  mutate(SalePrice= mean(c(SalePriceAML, SalePriceR1, SalePriceR2, SalePriceR3, SalePriceEns))) %>%
+  mutate(SalePrice= mean(c(SalePriceR1, SalePriceR2, SalePriceR3, SalePriceEns))) %>%
   select(Id, SalePrice) %>%
   write_csv(paste0("/mnt/Data/DataSet/HousePricesKaggle/v_",version,"_base_SVM6_perf_", round(ensemble_rmsle_test,5), ".csv"))
 
-#0.11727
+#0.11800 
