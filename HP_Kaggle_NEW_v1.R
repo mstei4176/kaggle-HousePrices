@@ -13,7 +13,7 @@ set.seed(1337)
 ##########################################################################
 ##                               Setting WD                             ##
 ##########################################################################
-thisPath <- "/mnt/data/DataSet/HousePricesKaggle"
+thisPath <- "/Users/mstein/kaggle-HousePrices"
 setwd(thisPath)
 library(tidyverse)
 library(readr)
@@ -247,7 +247,7 @@ amlNEWt1 <- h2o.automl(x = x, y = y,
                        #max_runtime_secs_per_model = 900,
                        stopping_metric = "RMSLE",
                        stopping_rounds = 3,
-                       export_checkpoints_dir = "/mnt/data/DataSet/HousePricesKaggle/models",
+                       export_checkpoints_dir = "/Users/mstein/kaggle-HousePrices/models",
                        seed = 123)
 
 # View the AutoML Leaderboard
@@ -279,7 +279,7 @@ san_xgb1 <- h2o.xgboost(x = x,
                         stopping_metric = "RMSLE",
                         stopping_tolerance = 0.001,
                         fold_assignment = "Modulo",
-                        export_checkpoints_dir = "/mnt/data/DataSet/HousePricesKaggle/models",
+                        export_checkpoints_dir = "/Users/mstein/kaggle-HousePrices/models",
                         keep_cross_validation_predictions = TRUE,
                         seed = 1)
 h2o.rmsle(h2o.performance(san_xgb1, training.blend))
@@ -296,7 +296,7 @@ san_glm1 <- h2o.glm(    x = x,
                         early_stopping = TRUE,
                         seed = 1,
                         fold_assignment = "Modulo",
-                        export_checkpoints_dir = "/mnt/data/DataSet/HousePricesKaggle/models",
+                        export_checkpoints_dir = "/Users/mstein/kaggle-HousePrices/models",
                         keep_cross_validation_predictions = TRUE,
                         nfolds = nfolds)
 
@@ -316,7 +316,7 @@ san_glm2 <- h2o.glm(    x = x,
                        lambda_search = TRUE,
                        seed = 1,
                        fold_assignment = "Modulo",
-                       export_checkpoints_dir = "/mnt/data/DataSet/HousePricesKaggle/models",
+                       export_checkpoints_dir = "/Users/mstein/kaggle-HousePrices/models",
                        keep_cross_validation_predictions = TRUE,
                        nfolds = nfolds)
 
@@ -336,7 +336,7 @@ san_glm3 <- h2o.glm(    x = x,
                         early_stopping = TRUE,
                         seed = 1,
                         fold_assignment = "Modulo",
-                        export_checkpoints_dir = "/mnt/data/DataSet/HousePricesKaggle/models",
+                        export_checkpoints_dir = "/Users/mstein/kaggle-HousePrices/models",
                         keep_cross_validation_predictions = TRUE,
                         nfolds = nfolds)
 
@@ -355,7 +355,7 @@ ensemble <- h2o.stackedEnsemble(x = x,
                                 blending_frame = training.blend,
                                 model_id = "HP_ensemble",
                                 metalearner_algorithm = "gbm",
-                                export_checkpoints_dir = "/mnt/data/DataSet/HousePricesKaggle/models",
+                                export_checkpoints_dir = "/Users/mstein/kaggle-HousePrices/models",
                                 keep_levelone_frame = TRUE,
                                 #metalearner_params = hyper_params,
                                 metalearner_nfolds = 6, #was 10
