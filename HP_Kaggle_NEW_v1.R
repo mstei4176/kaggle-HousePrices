@@ -283,8 +283,7 @@ san_xgb1 <- h2o.xgboost(x = x,
                         keep_cross_validation_predictions = TRUE,
                         seed = 1)
 h2o.rmsle(h2o.performance(san_xgb1, training.blend))
-# [1] 0.01036601 with default tree and eta
-# [1] 0.009435 with 4300 trees and eta = 0.005
+# [1] 0.01002807
 
 san_glm1 <- h2o.glm(    x = x,
                         y = y,
@@ -321,7 +320,7 @@ san_glm2 <- h2o.glm(    x = x,
                        nfolds = nfolds)
 
 h2o.rmsle(h2o.performance(san_glm2, training.blend))
-#[1] 0.01234461
+#[1] 0.009780807
 
 ## Ridge Regression alpha =0
 san_glm3 <- h2o.glm(    x = x,
@@ -341,7 +340,7 @@ san_glm3 <- h2o.glm(    x = x,
                         nfolds = nfolds)
 
 h2o.rmsle(h2o.performance(san_glm3, training.blend))
-#[1] 0.009248522
+#[1] 0.009277972
 
 hyper_params <- list(learn_rate = 0.01,
                      ntrees = 1000,
@@ -362,31 +361,12 @@ ensemble <- h2o.stackedEnsemble(x = x,
                                 seed = 1)
 
 h2o.rmsle(h2o.performance(ensemble, training.blend))
-# Eval ensemble performance on a test set
+# [1] 0.007496884
 perf <- h2o.performance(ensemble, newdata = training.blend)
 
-
 #######################################################################################################
-# Create SVM Model
+# Combine
 #######################################################################################################
-#train <- as.data.frame(training.train)
-#test <- as.data.frame(training.test)
-#training.hex = h2o.getFrame(h2o = localH2O, key = "prostate.hex")
-#svm_model<-svm(LogPrice~., data=train, cost = 3)
-#svm_pred <- as.data.frame(expm1(predict(svm_model,newdata = test)))
-#colnames(svm_pred) <- "pred"
-
-#svm_model2<-svm(LogPrice~., data=train, 
-#                epsilon = 0.3,
-#                cost = 3)
-#svm_pred2 <- as.data.frame(expm1(predict(svm_model2,newdata = test)))
-#colnames(svm_pred2) <- "pred"
-
-#######################################################################################################
-# Create SVM Model
-#######################################################################################################
-
-
 
 # Compare to base learner performance on the test set
 perf_xgb1_test <- h2o.performance(san_xgb1, newdata = training.blend)
@@ -398,7 +378,7 @@ perf_glm2_test <- h2o.performance(san_glm2, newdata = training.blend)
 perf_glm3_test <- h2o.performance(san_glm3, newdata = training.blend)
 # baselearner_best_RMSLE_test <- min(h2o.rmsle(perf_xgb1_test), h2o.rmsle(perf_xgb2_test), h2o.rmsle(perf_nn1_test),
 #                                    h2o.rmsle(perf_glm1_test), h2o.rmsle(perf_xbm1_test), h2o.rmsle(perf_glm2_test))
-baselearner_best_RMSLE_test <- min(h2o.rmsle(perf_glm1_test), h2o.rmsle(perf_glm2_test), h2o.rmsle(perf_glm3_test))
+baselearner_best_RMSLE_test <- min(h2o.rmsle(perf_glm1_test), h2o.rmsle(perf_glm2_test), h2o.rmsle(perf_glm3_test), h2o.rmsle(perf_xgb1_test))
 
 ensemble_rmsle_test <- h2o.rmsle(perf)
 print(sprintf("Best Base-learner Test RMSLE:  %s", baselearner_best_RMSLE_test))
@@ -412,10 +392,12 @@ predML <- h2o.predict(amlNEWt1, newdata = test.hex)
 predictiondf <- as.data.frame(pred)
 predictiondfML <- as.data.frame(predML)
 
-version <- "108"
+version <- "110"
 
 #---------------------------
-#Load DAI
+cat("Making submission file...\n")
+#output <- read_csv("/mnt/Data/DataSet/HousePricesKaggle/test.csv") 
+#my_submission <- data_frame('Id' = as.integer(output$Id), 'SalePrice' = exp(predictiondf$predict))
 library(readr)
 run1 <- read_csv("/mnt/Data/DataSet/HousePricesKaggle/test_preds (1).csv")
 run2 <- read_csv("/mnt/Data/DataSet/HousePricesKaggle/test_preds (2).csv")
@@ -427,26 +409,9 @@ read_csv("/mnt/Data/DataSet/HousePricesKaggle/sample_submission.csv") %>%
             SalePriceR1 = run1$SalePrice,
             SalePriceR2 = run2$SalePrice,
             SalePriceEns= expm1(predictiondf$predict))  %>%
+  rowwise() %>%
   mutate(SalePrice= mean(c(SalePriceAML, SalePriceR1, SalePriceR1, SalePriceEns))) %>%
-  rowwise() %>%
   select(Id, SalePrice) %>%
   write_csv(paste0("/mnt/Data/DataSet/HousePricesKaggle/v_",version,"_base_SVM6_perf_", round(ensemble_rmsle_test,5), ".csv"))
 
-read_csv("/mnt/Data/DataSet/HousePricesKaggle/sample_submission.csv") %>% 
-  transmute('Id' = as.integer(Id),
-            SalePrice = expm1(predictiondf$predict))  %>%
-  rowwise() %>%
-  select(Id, SalePrice) %>%
-  write_csv(paste0("/mnt/Data/DataSet/HousePricesKaggle/v_",version,"_base_SVM6_perf_", round(ensemble_rmsle_test,5), ".csv"))
-
-#---------------------------
-cat("Making submission file...\n")
-#output <- read_csv("/mnt/Data/DataSet/HousePricesKaggle/test.csv") 
-#my_submission <- data_frame('Id' = as.integer(output$Id), 'SalePrice' = exp(predictiondf$predict))
-
-read_csv("/mnt/Data/DataSet/HousePricesKaggle/sample_submission.csv") %>% 
-  transmute('Id' = as.integer(Id),
-            SalePrice = expm1(predictiondf$predict)) %>%
-  write_csv(paste0("/mnt/Data/DataSet/HousePricesKaggle/v_",version,"_base_perf_", round(ensemble_rmsle_test,5), ".csv"))
-
-#0.14130
+#0.11911
