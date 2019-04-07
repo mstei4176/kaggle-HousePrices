@@ -15,6 +15,8 @@ set.seed(1337)
 ##########################################################################
 thisPath <- "/mnt/data/DataSet/HousePricesKaggle"
 setwd(thisPath)
+library(tidyverse)
+library(readr)
 ##########################################################################
 ##                               Local Data                             ##
 ##########################################################################
@@ -234,7 +236,6 @@ training.train <- training.split[[1]]
 training.blend <- training.split[[2]]
 nfolds <- 6
 
-
 amlNEWt1 <- h2o.automl(x = x, y = y,
                        training_frame = training.train,
                        blending_frame = training.blend,
@@ -256,6 +257,8 @@ print(lb, n = nrow(lb))  # Print all rows instead of default (6 rows)
 #######################################################################################################
 # Create blended stacked Ensemble
 #######################################################################################################
+nfolds <- 6
+
 san_xgb1 <- h2o.xgboost(x = x,
                         y = y,
                         training_frame = training.train,
@@ -270,7 +273,6 @@ san_xgb1 <- h2o.xgboost(x = x,
                         min_rows = 4, #best
                         max_depth = 4, #best
                         normalize_type = "forest", #best
-                        #sample_rate = 0.8, # better at 1.0
                         grow_policy = "depthwise",
                         booster = "gbtree", #best
                         nfolds = nfolds,
@@ -280,11 +282,9 @@ san_xgb1 <- h2o.xgboost(x = x,
                         export_checkpoints_dir = "/mnt/data/DataSet/HousePricesKaggle/models",
                         keep_cross_validation_predictions = TRUE,
                         seed = 1)
-# > h2o.rmsle(h2o.performance(san_xgb1, training.blend))
+h2o.rmsle(h2o.performance(san_xgb1, training.blend))
 # [1] 0.01036601 with default tree and eta
 # [1] 0.009435 with 4300 trees and eta = 0.005
-h2o.rmsle(h2o.performance(san_xgb1, training.blend))
-
 
 san_glm1 <- h2o.glm(    x = x,
                         y = y,
@@ -292,14 +292,8 @@ san_glm1 <- h2o.glm(    x = x,
                         validation_frame = training.blend,
                         model_id = "san_glm1",
                         family = "gaussian",
-                        standardize = TRUE,
-                        missing_values_handling = "Skip",
-                        lambda_search = TRUE,
-                        remove_collinear_columns = TRUE,
-                        solver = "COORDINATE_DESCENT_NAIVE", # "L_BFGS" "COORDINATE_DESCENT"
+                        solver = "L_BFGS", #BEST
                         early_stopping = TRUE,
-                        #max_iterations = 10000,
-                        #link = "log",
                         seed = 1,
                         fold_assignment = "Modulo",
                         export_checkpoints_dir = "/mnt/data/DataSet/HousePricesKaggle/models",
@@ -307,40 +301,64 @@ san_glm1 <- h2o.glm(    x = x,
                         nfolds = nfolds)
 
 h2o.rmsle(h2o.performance(san_glm1, training.blend))
+#[1] 0.009325758
 
 ## Lasso Regression alpha =1
-san_glm2 <- h2o.glm(     x = x,
+san_glm2 <- h2o.glm(    x = x,
+                       y = y,
+                       training_frame = training.train,
+                       validation_frame = training.blend,
+                       model_id = "san_glm2",
+                       family = "gaussian",
+                       solver = "IRLSM", #BEST
+                       alpha = 1,
+                       early_stopping = TRUE,
+                       lambda_search = TRUE,
+                       seed = 1,
+                       fold_assignment = "Modulo",
+                       export_checkpoints_dir = "/mnt/data/DataSet/HousePricesKaggle/models",
+                       keep_cross_validation_predictions = TRUE,
+                       nfolds = nfolds)
+
+h2o.rmsle(h2o.performance(san_glm2, training.blend))
+#[1] 0.01234461
+
+## Ridge Regression alpha =0
+san_glm3 <- h2o.glm(    x = x,
                         y = y,
                         training_frame = training.train,
                         validation_frame = training.blend,
+                        model_id = "san_glm3",
                         family = "gaussian",
-                        model_id = "san_glm2",
-                        standardize = TRUE,
-                        missing_values_handling = "Skip",
-                        alpha =  1,
+                        solver = "IRLSM", #BEST
                         lambda_search = TRUE,
-                        remove_collinear_columns = TRUE,
-                        solver = "COORDINATE_DESCENT_NAIVE", # "L_BFGS" "COORDINATE_DESCENT"
+                        alpha = 0,
                         early_stopping = TRUE,
-                        #max_iterations = 10000,
-                        #link = "log",
                         seed = 1,
                         fold_assignment = "Modulo",
                         export_checkpoints_dir = "/mnt/data/DataSet/HousePricesKaggle/models",
                         keep_cross_validation_predictions = TRUE,
                         nfolds = nfolds)
 
-h2o.rmsle(h2o.performance(san_glm2, training.blend))
+h2o.rmsle(h2o.performance(san_glm3, training.blend))
+#[1] 0.009248522
 
+hyper_params <- list(learn_rate = 0.01,
+                     ntrees = 1000,
+                     stopping_metric = "RMSLE",
+                     stopping_tolerance = 0.001)
 
 ensemble <- h2o.stackedEnsemble(x = x,
                                 y = y,
-                                base_models = list(san_xgb1, san_glm1, san_glm2),
+                                base_models = list(san_glm1, san_glm2, san_glm3),
                                 training_frame = training.train,
                                 blending_frame = training.blend,
                                 model_id = "HP_ensemble",
-                                metalearner_algorithm = "AUTO",
-                                metalearner_nfolds = 15,
+                                metalearner_algorithm = "gbm",
+                                export_checkpoints_dir = "/mnt/data/DataSet/HousePricesKaggle/models",
+                                keep_levelone_frame = TRUE,
+                                #metalearner_params = hyper_params,
+                                metalearner_nfolds = 6, #was 10
                                 seed = 1)
 
 h2o.rmsle(h2o.performance(ensemble, training.blend))
@@ -372,14 +390,15 @@ perf <- h2o.performance(ensemble, newdata = training.blend)
 
 # Compare to base learner performance on the test set
 perf_xgb1_test <- h2o.performance(san_xgb1, newdata = training.blend)
-perf_xgb2_test <- h2o.performance(san_xgb2, newdata = training.blend)
+# perf_xgb2_test <- h2o.performance(san_xgb2, newdata = training.blend)
 # perf_nn1_test <- h2o.performance(san_nn1, newdata = training.blend)
 # perf_xbm1_test <- h2o.performance(san_xbm1, newdata = training.blend)
-# perf_glm1_test <- h2o.performance(san_glm1, newdata = training.blend)
-# perf_glm2_test <- h2o.performance(san_glm2, newdata = training.blend)
+perf_glm1_test <- h2o.performance(san_glm1, newdata = training.blend)
+perf_glm2_test <- h2o.performance(san_glm2, newdata = training.blend)
+perf_glm3_test <- h2o.performance(san_glm3, newdata = training.blend)
 # baselearner_best_RMSLE_test <- min(h2o.rmsle(perf_xgb1_test), h2o.rmsle(perf_xgb2_test), h2o.rmsle(perf_nn1_test),
 #                                    h2o.rmsle(perf_glm1_test), h2o.rmsle(perf_xbm1_test), h2o.rmsle(perf_glm2_test))
-baselearner_best_RMSLE_test <- min(h2o.rmsle(perf_xgb1_test), h2o.rmsle(perf_xgb2_test))
+baselearner_best_RMSLE_test <- min(h2o.rmsle(perf_glm1_test), h2o.rmsle(perf_glm2_test), h2o.rmsle(perf_glm3_test))
 
 ensemble_rmsle_test <- h2o.rmsle(perf)
 print(sprintf("Best Base-learner Test RMSLE:  %s", baselearner_best_RMSLE_test))
@@ -388,12 +407,12 @@ print(sprintf("Ensemble Test RMSLE:  %s", ensemble_rmsle_test))
 # Generate predictions on a test set (if neccessary)
 #prediction.hex <- as.h2o(te, destination_frame = "test.hex")
 
-pred <- h2o.predict(ensemble, newdata = prediction.hex)
-predML <- h2o.predict(amlNEWt1, newdata = prediction.hex)
+pred <- h2o.predict(ensemble, newdata = test.hex)
+predML <- h2o.predict(amlNEWt1, newdata = test.hex)
 predictiondf <- as.data.frame(pred)
 predictiondfML <- as.data.frame(predML)
 
-version <- "107"
+version <- "108"
 
 #---------------------------
 #Load DAI
@@ -415,11 +434,8 @@ read_csv("/mnt/Data/DataSet/HousePricesKaggle/sample_submission.csv") %>%
 
 read_csv("/mnt/Data/DataSet/HousePricesKaggle/sample_submission.csv") %>% 
   transmute('Id' = as.integer(Id),
-            SalePriceAML = expm1(predictiondfML$predict),
-            SalePriceR1 = run1$SalePrice,
-            SalePriceR2 = run2$SalePrice)  %>%
+            SalePrice = expm1(predictiondf$predict))  %>%
   rowwise() %>%
-  mutate(SalePrice= mean(c(SalePriceAML, SalePriceR1, SalePriceR1))) %>%
   select(Id, SalePrice) %>%
   write_csv(paste0("/mnt/Data/DataSet/HousePricesKaggle/v_",version,"_base_SVM6_perf_", round(ensemble_rmsle_test,5), ".csv"))
 
@@ -431,6 +447,6 @@ cat("Making submission file...\n")
 read_csv("/mnt/Data/DataSet/HousePricesKaggle/sample_submission.csv") %>% 
   transmute('Id' = as.integer(Id),
             SalePrice = expm1(predictiondf$predict)) %>%
-  write_csv(paste0("v_",version,"_base_perf_", round(ensemble_rmsle_test,5), ".csv"))
+  write_csv(paste0("/mnt/Data/DataSet/HousePricesKaggle/v_",version,"_base_perf_", round(ensemble_rmsle_test,5), ".csv"))
 
 #0.14130
