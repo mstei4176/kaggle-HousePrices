@@ -401,6 +401,8 @@ cat("Making submission file...\n")
 library(readr)
 run1 <- read_csv("/mnt/Data/DataSet/HousePricesKaggle/test_preds (1).csv")
 run2 <- read_csv("/mnt/Data/DataSet/HousePricesKaggle/test_preds (2).csv")
+run3 <- read_csv("/Users/mstein/kaggle-HousePrices/hybrid_solution.csv")
+
 #AutoPred <- as.data.frame(expm1(h2o.predict(autoMeta1, test.hex)))
 
 read_csv("/mnt/Data/DataSet/HousePricesKaggle/sample_submission.csv") %>% 
@@ -408,10 +410,11 @@ read_csv("/mnt/Data/DataSet/HousePricesKaggle/sample_submission.csv") %>%
             SalePriceAML = expm1(predictiondfML$predict),
             SalePriceR1 = run1$SalePrice,
             SalePriceR2 = run2$SalePrice,
+            SalePriceR3 = run3$SalePrice,
             SalePriceEns= expm1(predictiondf$predict))  %>%
   rowwise() %>%
-  mutate(SalePrice= mean(c(SalePriceAML, SalePriceR1, SalePriceR1, SalePriceEns))) %>%
+  mutate(SalePrice= mean(c(SalePriceAML, SalePriceR1, SalePriceR2, SalePriceR3, SalePriceEns))) %>%
   select(Id, SalePrice) %>%
   write_csv(paste0("/mnt/Data/DataSet/HousePricesKaggle/v_",version,"_base_SVM6_perf_", round(ensemble_rmsle_test,5), ".csv"))
 
-#0.11911
+#0.11727
