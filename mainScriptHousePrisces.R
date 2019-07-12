@@ -71,7 +71,7 @@ print_dot_callback <- callback_lambda(
 )    
 
 # The patience parameter is the amount of epochs to check for improvement.
-early_stop <- callback_early_stopping(monitor = "val_loss", patience = 50)
+early_stop <- callback_early_stopping(monitor = "val_loss", patience = 40)
 
 epochs <- 400
 
@@ -98,4 +98,34 @@ library(ggplot2)
 
 plot(history, metrics = "mean_absolute_error", smooth = FALSE) +
   coord_cartesian(ylim = c(0, 5))
+
+print(history)
+
+testPreds <- model_keras %>% predict(as.matrix(x_test_tbl))
+testPreds <- testPreds[ , 1]
+#testPreds <- expm1(testPreds)
+
+#---------------------------
+cat("Making submission file...\n")
+version <- "12"
+
+#output <- read_csv("/mnt/Data/DataSet/HousePricesKaggle/test.csv") 
+#my_submission <- data_frame('Id' = as.integer(output$Id), 'SalePrice' = exp(predictiondf$predict))
+# library(readr)
+# run1 <- read_csv("/mnt/Data/DataSet/HousePricesKaggle/test_preds (1).csv")
+# run2 <- read_csv("/mnt/Data/DataSet/HousePricesKaggle/test_preds (2).csv")
+# run3 <- read_csv("/Users/mstein/kaggle-HousePrices/hybrid_solution.csv")
+# run4 <- read_csv("/Users/mstein/kaggle-HousePrices/House_price_submission_v57.csv")
+
+#AutoPred <- as.data.frame(expm1(h2o.predict(autoMeta1, test.hex)))
+
+read_csv("/mnt/Data/DataSet/HousePricesKaggle/sample_submission.csv") %>% 
+  transmute('Id' = as.integer(Id),
+            SalePriceTF1 = expm1(testPreds),
+            SalePriceTF2 = expm1(testPreds))  %>%
+  rowwise() %>%
+  mutate(SalePrice= mean(c(SalePriceTF1, SalePriceTF2))) %>%
+  select(Id, SalePrice) %>%
+  write_csv(paste0("/mnt/Data/DataSet/HousePricesKaggle/v_",version,"_TF_perf_", round(min(history$metrics$val_mean_absolute_error),5), ".csv"))
+
 
