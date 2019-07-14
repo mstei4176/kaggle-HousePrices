@@ -105,6 +105,39 @@ testPreds <- model_keras %>% predict(as.matrix(x_test_tbl))
 testPreds <- testPreds[ , 1]
 #testPreds <- expm1(testPreds)
 
+
+
+system.time ( 
+  history2 <- fit (
+    object           = model_keras,             # => Our Model
+    x                = as.matrix(x_train_tbl),  # => Matrix
+    y                = y_train_vec,             # => Numeric Vector 
+    batch_size       = 512,     #=> #OfSamples/gradient update in each epoch
+    epochs           = epochs,     #=> Control Training cycles
+    validation_split = 0.25,
+    verbose = 0,
+    callbacks = list(early_stop, print_dot_callback))
+) #=> Include 30% data for 'Validation' Model
+
+model_keras %>% evaluate(as.matrix(x_train_tbl), y_train_vec)
+
+#c(loss, mae) %<-% (model_keras %>% evaluate(as.matrix (x_train_tbl), y_train_vec, verbose = 0))
+#paste0("Mean absolute error on test set: $", sprintf("%.2f", mae * 1000))
+
+
+library(ggplot2)
+
+plot(history2, metrics = "mean_absolute_error", smooth = FALSE) +
+  coord_cartesian(ylim = c(0, 5))
+
+print(history2)
+
+testPreds2 <- model_keras %>% predict(as.matrix(x_test_tbl))
+testPreds2 <- testPreds2[ , 1]
+#testPreds <- expm1(testPreds)
+
+
+
 #---------------------------
 cat("Making submission file...\n")
 version <- "12"
@@ -122,7 +155,7 @@ version <- "12"
 read_csv("/mnt/Data/DataSet/HousePricesKaggle/sample_submission.csv") %>% 
   transmute('Id' = as.integer(Id),
             SalePriceTF1 = expm1(testPreds),
-            SalePriceTF2 = expm1(testPreds))  %>%
+            SalePriceTF2 = expm1(testPreds2))  %>%
   rowwise() %>%
   mutate(SalePrice= mean(c(SalePriceTF1, SalePriceTF2))) %>%
   select(Id, SalePrice) %>%
